@@ -1,22 +1,13 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional
-from uuid import UUID
+from datetime import datetime
 
-class PostCreate(BaseModel):
+class BlogPostSchema(BaseModel):
     title: str
     content: str
+    author_id: int
 
-class PostUpdate(BaseModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
-
-class PostResponse(BaseModel):
-    id: UUID
-    title: str
-    content: str
-    author: UUID
-    created_at: str
-    updated_at: str
-
-    class Config:
-        orm_mode = True
+class BlogPostResponseSchema(BlogPostSchema):
+    id: int
+    created_at: datetime
+    updated_at: datetime

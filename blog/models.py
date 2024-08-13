@@ -3,7 +3,7 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy
 from uuid import uuid4
 
-class Post(models.Model):
+class BlogPost(models.Model):
     '''Model representing a blog post.'''
     
     id = models.UUIDField(default=uuid4, primary_key=True)

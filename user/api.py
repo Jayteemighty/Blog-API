@@ -1,76 +1,56 @@
-from typing import List
-from ninja import NinjaAPI
-from ninja.security import BearerAuth
-from django.shortcuts import get_object_or_404
-from rest_framework.response import Response
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
+from ninja import Router
+from ninja.security import HttpBearer
+from pydantic import BaseModel
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import get_user_model
-from .serializers import (
-    UserSerializer, CreateAccountSerializer, LoginSerializer,
-    UserDetailsSerializer, ChangePasswordSerializer
-)
+from rest_framework.exceptions import AuthenticationFailed
 
-api = NinjaAPI()
+router = Router()
 
-User = get_user_model()
-
-class JWTAuth(BearerAuth):
+class AuthBearer(HttpBearer):
     def authenticate(self, request, token):
         try:
-            refresh_token = RefreshToken(token)
-            user_id = refresh_token.payload.get('user_id')
-            user = User.objects.get(id=user_id)
-            return user
-        except Exception as e:
-            return None
+            RefreshToken(token)
+            return token
+        except Exception:
+            raise AuthenticationFailed("Invalid token")
 
-@api.post("/register", response=UserSerializer)
-def register(request, data: CreateAccountSerializer):
-    """Register a new user."""
-    serializer = CreateAccountSerializer(data=data)
-    serializer.is_valid(raise_exception=True)
-    user = serializer.save()
-    return user
+class RegisterSchema(BaseModel):
+    username: str
+    password: str
+    email: str
 
-@api.post("/login")
-def login(request, data: LoginSerializer):
-    """Login an existing user."""
-    serializer = LoginSerializer(data=data)
-    serializer.is_valid(raise_exception=True)
-    user = serializer.validated_data['user']
-    refresh_token = RefreshToken.for_user(user)
-    return Response({
-        'refresh': str(refresh_token),
-        'access': str(refresh_token.access_token),
-    })
+class LoginSchema(BaseModel):
+    username: str
+    password: str
 
-@api.get("/users/{user_id}", response=UserDetailsSerializer, auth=JWTAuth())
-def get_user(request, user_id: str):
-    """Retrieve user details."""
-    user = get_object_or_404(User, id=user_id)
-    return user
+class TokenResponseSchema(BaseModel):
+    access: str
+    refresh: str
 
-@api.put("/users/{user_id}", response=UserDetailsSerializer, auth=JWTAuth())
-def update_user(request, user_id: str, data: UserDetailsSerializer):
-    """Update user details."""
-    user = get_object_or_404(User, id=user_id)
-    serializer = UserDetailsSerializer(user, data=data, partial=True)
-    serializer.is_valid(raise_exception=True)
-    user = serializer.save()
-    return user
+def get_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+    }
 
-@api.delete("/users/{user_id}", auth=JWTAuth())
-def delete_user(request, user_id: str):
-    """Delete a user."""
-    user = get_object_or_404(User, id=user_id)
-    user.delete()
-    return Response({"message": "User deleted successfully"})
+@router.post("/register/", response=TokenResponseSchema)
+def register(request, data: RegisterSchema):
+    user = User.objects.create_user(username=data.username, password=data.password, email=data.email)
+    tokens = get_tokens_for_user(user)
+    return tokens
 
-@api.post("/change-password", auth=JWTAuth())
-def change_password(request, data: ChangePasswordSerializer):
-    """Change the password for a user."""
-    serializer = ChangePasswordSerializer(data=data, context={'request': request})
-    serializer.is_valid(raise_exception=True)
+@router.post("/login/", response=TokenResponseSchema)
+def login(request, data: LoginSchema):
+    user = authenticate(username=data.username, password=data.password)
+    if user is None:
+        raise AuthenticationFailed("Invalid credentials")
+    tokens = get_tokens_for_user(user)
+    return tokens
+
+@router.get("/profile/", auth=AuthBearer())
+def profile(request):
     user = request.user
-    serializer.update(user, serializer.validated_data)
-    return Response({"message": "Password changed successfully"})
+    return {"username": user.username, "email": user.email}

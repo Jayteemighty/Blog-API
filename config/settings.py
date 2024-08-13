@@ -29,7 +29,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     
     # Apps
-    #"blog",
+    "blog",
     "user",
     
     # 3rd party apps
@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
     'ninja',
+    #'django-ninja',
     #'django_ninja',
     'corsheaders',
     'drf_yasg',
