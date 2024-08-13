@@ -1,10 +1,9 @@
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate
 from ninja import Router
 from ninja.security import HttpBearer
 from pydantic import BaseModel
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import AuthenticationFailed
+from .models import CustomUser
 
 router = Router()
 
@@ -17,12 +16,15 @@ class AuthBearer(HttpBearer):
             raise AuthenticationFailed("Invalid token")
 
 class RegisterSchema(BaseModel):
-    username: str
-    password: str
     email: str
+    password: str
+    username: str
+    first_name: str
+    last_name: str
+    phone_number: str
 
 class LoginSchema(BaseModel):
-    username: str
+    email: str
     password: str
 
 class TokenResponseSchema(BaseModel):
@@ -38,19 +40,34 @@ def get_tokens_for_user(user):
 
 @router.post("/register/", response=TokenResponseSchema)
 def register(request, data: RegisterSchema):
-    user = User.objects.create_user(username=data.username, password=data.password, email=data.email)
+    user = CustomUser.objects.create_user(
+        email=data.email,
+        password=data.password,
+        username=data.username,
+        first_name=data.first_name,
+        last_name=data.last_name,
+        phone_number=data.phone_number
+    )
     tokens = get_tokens_for_user(user)
     return tokens
 
 @router.post("/login/", response=TokenResponseSchema)
 def login(request, data: LoginSchema):
-    user = authenticate(username=data.username, password=data.password)
-    if user is None:
+    user = CustomUser.objects.filter(email=data.email).first()
+    if user is None or not user.check_password(data.password):
         raise AuthenticationFailed("Invalid credentials")
     tokens = get_tokens_for_user(user)
     return tokens
 
 @router.get("/profile/", auth=AuthBearer())
 def profile(request):
-    user = request.user
-    return {"username": user.username, "email": user.email}
+    user = CustomUser.objects.get(email=request.auth)
+    return {
+        "username": user.username,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "phone_number": user.phone_number,
+        "is_verified": user.is_verified,
+        "created_at": user.created_at,
+    }

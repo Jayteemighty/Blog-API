@@ -1,16 +1,27 @@
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
-from django.utils.translation import gettext_lazy
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from django.utils.translation import gettext_lazy as _
 from uuid import uuid4
-from .manager import CustomUserManager
+
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('The Email field must be set')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        return self.create_user(email, password, **extra_fields)
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    '''Custom user model'''
-    
-    arbitrary_types_allowed=True
-
     id = models.UUIDField(default=uuid4, primary_key=True)
-    email = models.EmailField(gettext_lazy('email address'), unique=True, null=False)
+    email = models.EmailField(_('email address'), unique=True, null=False)
     username = models.CharField(max_length=20, unique=True, null=False, default='')
     first_name = models.CharField(max_length=128, null=False)
     last_name = models.CharField(max_length=128, null=False)
