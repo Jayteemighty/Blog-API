@@ -126,7 +126,7 @@ This project is a Django REST Framework web application.
 4. Access Swagger documentation on the development server:
 
     ```bash
-    http://127.0.0.1:8000/docs/
+    http://127.0.0.1:8000/api/docs/
     ```
 
 **Additional Notes:**
