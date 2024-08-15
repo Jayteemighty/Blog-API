@@ -1,13 +1,16 @@
 from pydantic import BaseModel
-from typing import Optional
+from uuid import UUID
 from datetime import datetime
 
 class BlogPostSchema(BaseModel):
     title: str
     content: str
-    author_id: int
+    author_id: UUID
 
 class BlogPostResponseSchema(BlogPostSchema):
-    id: int
+    id: UUID
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        orm_mode = True
